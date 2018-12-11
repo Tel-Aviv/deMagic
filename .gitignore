@@ -1,0 +1,10 @@
+# Logs
+*.log
+
+node_modules/
+
+public/*.map
+public/*.js
+
+# Mac
+.DS_Store
