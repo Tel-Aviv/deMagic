@@ -55,6 +55,28 @@ class App extends React.Component<Props, State> {
 
   }
 
+  async deleteItem(itemId: String) {
+
+    try {
+      const resp = await fetch(`${baseUrl}largefacelists/10/persistedfaces/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a',
+        }
+      });
+      
+      const filtered = this.state.listItems.filter( item => {
+        return item.id != itemId
+      });
+
+      this.setState({
+        listItems: filtered
+      });
+    } catch( err ) {
+      console.error(err);
+    }
+  }
+
   async addItem() {
 
     const { addURL, addName, addPhone  } = this.state;
@@ -66,7 +88,7 @@ class App extends React.Component<Props, State> {
     };
 
     const userData = {
-      phoneNumner: '0543307026',
+      phoneNumber: '0543307026',
       name: 'Oleg Kleiman',
       url: pictureURL
     };
@@ -154,11 +176,27 @@ class App extends React.Component<Props, State> {
               className="-striped -highlight tableInCard col col-12"
               data={this.state.listItems}
               columns={[{
-                Header: 'Picture URL'
+                Header: 'Picture URL',
+                accessor: 'url'
               }, {
-                Header: 'FaceID'
+                Header: 'FaceID',
+                accessor: 'id'
               }, {
-                Header: 'Name'
+                Header: 'Phone Number',
+                accessor: 'phoneNumber'
+              },
+              {
+                Header: 'Name',
+                accessor: 'name'
+              }, {
+                Header: '',
+                Cell: row => {
+                        const itemId = row.original.id;
+                        return (<Button
+                                onClick={ () => ::this.deleteItem(itemId) }>
+                                Delete
+                              </Button>)
+                      }
               }]}
               />
         </Card>
