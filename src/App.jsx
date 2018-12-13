@@ -3,15 +3,17 @@ import React from 'react';
 import ReactTable from 'react-table';
 import 'react-table/react-table.css'
 import { Button, Card, CardBody, Row, Col,
-         InputGroup, Input,
+         InputGroup, Input, InputGroupAddon, InputGroupText,
          Modal, ModalHeader, ModalBody, ModalFooter} from 'reactstrap';
 
 type State = {
     listItems: Array<>,
     modal: Boolean,
-    addURL: String,
-    addName: String,
-    addPhone: String
+    editModal: Boolean,
+    itemId: String,
+    itemName: String,
+    itemPhoneNumber: String,
+    itemURL: String
 }
 
 const baseUrl = 'https://northeurope.api.cognitive.microsoft.com/face/v1.0/'
@@ -22,12 +24,21 @@ class App extends React.Component<Props, State> {
   state = {
     listItems: [],
     modal: false,
-    addURL: '',
-    addName: '',
-    addPhone: ''
+    editModal: false,
+
+    itemId: '',
+    itemName: '',
+    itemURL: '',
+    itemPhoneNumber: ''
   }
 
   componentDidMount() {
+
+    this.updateData();
+
+  }
+
+  updateData() {
 
     fetch(baseUrl + 'largefacelists/10/persistedfaces?start=0&top=1000', {
         method: 'GET',
@@ -52,6 +63,9 @@ class App extends React.Component<Props, State> {
         listItems: listItems
       });
     })
+  }
+
+  async editItem(itemId: String) {
 
   }
 
@@ -64,7 +78,7 @@ class App extends React.Component<Props, State> {
           'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a',
         }
       });
-      
+
       const filtered = this.state.listItems.filter( item => {
         return item.id != itemId
       });
@@ -79,18 +93,15 @@ class App extends React.Component<Props, State> {
 
   async addItem() {
 
-    const { addURL, addName, addPhone  } = this.state;
-
-    const pictureURL = 'https://sslcdn.proz.com/profile_resources/601304_r452f11e81a21e.jpg';
-
+    const { itemURL, itemName, itemPhoneNumber  } = this.state;
     const body = {
-      url: pictureURL
+      url: itemURL
     };
 
     const userData = {
-      phoneNumber: '0543307026',
-      name: 'Oleg Kleiman',
-      url: pictureURL
+      phoneNumber: itemPhoneNumber,
+      name: itemName,
+      url: itemURL
     };
 
     try {
@@ -110,30 +121,90 @@ class App extends React.Component<Props, State> {
     }
 
     this.toggleModal();
+    this.updateData();
+  }
 
+  async updateItem() {
+
+    try {
+
+      const userData = {
+        phoneNumber: this.state.itemPhoneNumber,
+        name: this.state.itemName,
+        url: this.state.itemURL
+      };
+
+      const body = {
+        userData: JSON.stringify(userData)
+      };
+
+      const response = await fetch(`${baseUrl}largefacelists/10/persistedfaces/${this.state.itemId}`, {
+        method: 'PATCH',
+        headers: {
+          'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      console.log(response);
+    } catch( err ) {
+      console.error(err);
+    }
+
+    this.toggleEditModal('');
+    this.updateData();
   }
 
   updateName(event) {
-    console.log(event.target.value);
-
     this.setState({
-      addName: event.target.value
+      itemName: event.target.value
     });
   }
 
   updateURL(event) {
     this.setState({
-      addURL: event.target.value
+      itemURL: event.target.value
+    });
+  }
+
+  updatePhoneNumber(event) {
+    this.setState({
+      itemPhoneNumber: event.target.value
+    });
+  }
+
+  toggleEditModal(item) {
+    this.setState({
+      editModal: !this.state.editModal,
+      itemId: item.id,
+      itemName: item.name,
+      itemURL: item.url,
+      itemPhoneNumber: item.phoneNumber
     });
   }
 
   toggleModal() {
     this.setState({
       modal: !this.state.modal,
-      addURL: '',
-      addName: '',
-      addPhone: ''
+      itemId: '',
+      itemURL: '',
+      itemName: '',
+      itemPhoneNumber: ''
     });
+  }
+
+  async train() {
+    try {
+      const response = await fetch(`${baseUrl}largefacelists/10/train`, {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a'
+        }
+      });
+      console.log(response);
+    } catch( err ) {
+      console.error(err);
+    }
   }
 
   render() {
@@ -144,6 +215,11 @@ class App extends React.Component<Props, State> {
             <Button color='primary'
               onClick={::this.toggleModal}>
               <span>Add</span>
+            </Button>
+            &nbsp;
+            <Button color='primary'
+              onClick={::this.train}>
+              Train
             </Button>
 
             <Modal isOpen={this.state.modal}>
@@ -160,14 +236,43 @@ class App extends React.Component<Props, State> {
                 </InputGroup>
                 <br />
                 <InputGroup>
-                  <Input placeholder="phone number" />
+                  <Input placeholder="phone number" onChange={::this.updatePhoneNumber} />
                 </InputGroup>
               </ModalBody>
               <ModalFooter>
                 <Button color="primary" onClick={::this.addItem}>Add</Button>{' '}
                 <Button color="secondary" onClick={::this.toggleModal}>Cancel</Button>
               </ModalFooter>
+            </Modal>
+            <Modal isOpen={this.state.editModal}>
+              <ModalHeader>
+                <div>ItemId: {this.state.itemId}</div>
+              </ModalHeader>
+              <ModalBody>
+                <InputGroup>
+                  <InputGroupAddon addonType="prepend">
+                    <InputGroupText>Name</InputGroupText>
+                  </InputGroupAddon>
+                  <Input defaultValue={this.state.itemName}
+                         onChange={::this.updateName} />
+                </InputGroup>
+                <br />
+                <InputGroup>
+                  <InputGroupAddon addonType="prepend">
+                    <InputGroupText>Phone Number</InputGroupText>
+                  </InputGroupAddon>
+                  <Input defaultValue={this.state.itemPhoneNumber}
+                         onChange={::this.updatePhoneNumber} />
+                </InputGroup>
 
+              </ModalBody>
+              <ModalFooter>
+                <Button color="primary"
+                        onClick={::this.updateItem}>Update</Button>
+                &nbsp;
+                <Button color="secondary"
+                        onClick={ () => ::this.toggleEditModal('')}>Cancel</Button>
+              </ModalFooter>
             </Modal>
           </Col>
         </Row>
@@ -177,7 +282,15 @@ class App extends React.Component<Props, State> {
               data={this.state.listItems}
               columns={[{
                 Header: 'Picture URL',
-                accessor: 'url'
+                accessor: 'url',
+                Cell: row => {
+                  return <img style={{
+                                      display: 'block',
+                                      marginLeft: 'auto',
+                                      marginRight: 'auto'
+                              }}
+                              src={row.original.url} width='100'/>
+                }
               }, {
                 Header: 'FaceID',
                 accessor: 'id'
@@ -192,10 +305,24 @@ class App extends React.Component<Props, State> {
                 Header: '',
                 Cell: row => {
                         const itemId = row.original.id;
-                        return (<Button
-                                onClick={ () => ::this.deleteItem(itemId) }>
-                                Delete
-                              </Button>)
+                        const editItem = {
+                          id: itemId,
+                          name: row.original.name,
+                          phoneNumber: row.original.phoneNumber,
+                          url: row.original.url
+                        };
+
+                        return (<div>
+                                  <Button color="danger"
+                                    onClick={ () => ::this.deleteItem(itemId) }>
+                                    Delete
+                                  </Button>
+                                  &nbsp;
+                                  <Button color="success"
+                                    onClick={ () => this.toggleEditModal(editItem) }>
+                                    Edit
+                                  </Button>
+                                </div>)
                       }
               }]}
               />
