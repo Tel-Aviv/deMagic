@@ -5,11 +5,19 @@ import 'react-table/react-table.css'
 import { Button, Card, CardBody, Row, Col,
          InputGroup, Input, InputGroupAddon, InputGroupText,
          Modal, ModalHeader, ModalBody, ModalFooter} from 'reactstrap';
+import classNames from 'classnames';
 
 type State = {
+    error: String,
     listItems: Array<>,
     modal: Boolean,
     editModal: Boolean,
+    findModal: Boolean,
+    findUrl: String,
+
+    foundUrl: String,
+    foundName: String,
+
     itemId: String,
     itemName: String,
     itemPhoneNumber: String,
@@ -17,14 +25,19 @@ type State = {
 }
 
 const baseUrl = 'https://northeurope.api.cognitive.microsoft.com/face/v1.0/'
+const largeFaceListId = 10;
 
 export default
 class App extends React.Component<Props, State> {
 
   state = {
+    error: '',
     listItems: [],
     modal: false,
     editModal: false,
+    findModal: false,
+    findUrl: '',
+    foundUrl: '',
 
     itemId: '',
     itemName: '',
@@ -40,7 +53,7 @@ class App extends React.Component<Props, State> {
 
   updateData() {
 
-    fetch(baseUrl + 'largefacelists/10/persistedfaces?start=0&top=1000', {
+    fetch(`${baseUrl}largefacelists/${largeFaceListId}/persistedfaces?start=0&top=1000`, {
         method: 'GET',
         headers: {
           'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a'
@@ -63,6 +76,11 @@ class App extends React.Component<Props, State> {
         listItems: listItems
       });
     })
+    .catch( err => {
+      this.setState({
+        error: err
+      });
+    })
   }
 
   async editItem(itemId: String) {
@@ -72,7 +90,7 @@ class App extends React.Component<Props, State> {
   async deleteItem(itemId: String) {
 
     try {
-      const resp = await fetch(`${baseUrl}largefacelists/10/persistedfaces/${itemId}`, {
+      const resp = await fetch(`${baseUrl}largefacelists/${largeFaceListId}/persistedfaces/${itemId}`, {
         method: 'DELETE',
         headers: {
           'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a',
@@ -106,7 +124,7 @@ class App extends React.Component<Props, State> {
 
     try {
       const rawResponse =
-        await fetch(`${baseUrl}largefacelists/10/persistedfaces?userData=${JSON.stringify(userData)}`, {
+        await fetch(`${baseUrl}largefacelists/${largeFaceListId}/persistedfaces?userData=${JSON.stringify(userData)}`, {
         method: 'POST',
         headers: {
           'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a',
@@ -138,7 +156,7 @@ class App extends React.Component<Props, State> {
         userData: JSON.stringify(userData)
       };
 
-      const response = await fetch(`${baseUrl}largefacelists/10/persistedfaces/${this.state.itemId}`, {
+      const response = await fetch(`${baseUrl}largefacelists/${largeFaceListId}/persistedfaces/${this.state.itemId}`, {
         method: 'PATCH',
         headers: {
           'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a',
@@ -173,6 +191,12 @@ class App extends React.Component<Props, State> {
     });
   }
 
+  updateFindUrl(event) {
+    this.setState({
+      findUrl: event.target.value
+    })
+  }
+
   toggleEditModal(item) {
     this.setState({
       editModal: !this.state.editModal,
@@ -193,6 +217,71 @@ class App extends React.Component<Props, State> {
     });
   }
 
+  async findSimilar() {
+
+    this.setState({
+      foundName: '',
+      foundUrl: ''
+    })
+
+    let body = {
+      url: this.state.findUrl
+    };
+    try {
+      let resp = await fetch(`${baseUrl}detect?returnFaceId=true&returnFaceLandmarks=false&returnFaceAttributes=age,gender,headPose`, {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      let json = await resp.json();
+      if( json.length > 0 ) {
+
+        const faceId = json[0].faceId;
+        body = {
+          faceId: faceId,
+          largeFaceListId: largeFaceListId,
+          maxNumOfCandidatesReturned: 10,
+          mode: "matchPerson"
+        };
+
+        let resp = await fetch(`${baseUrl}findsimilars`, {
+          method: 'POST',
+          headers: {
+            'Ocp-Apim-Subscription-Key': '91c9316d38044714b15eb630c1b6738a',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+
+        json = await resp.json();
+        if( json && json.length > 0 ) {
+          const found =  this.state.listItems.find( item => {
+            return  item.id == json[0].persistedFaceId
+          });
+          this.setState({
+            foundUrl: found.url,
+            foundName: found.name
+          })
+
+        }
+
+
+      }
+
+    } catch( err ) {
+      console.error(err);
+    }
+  }
+
+  toggleFindModal() {
+    this.setState({
+      findModal: !this.state.findModal
+    })
+  }
+
   async train() {
     try {
       const response = await fetch(`${baseUrl}largefacelists/10/train`, {
@@ -208,6 +297,19 @@ class App extends React.Component<Props, State> {
   }
 
   render() {
+
+    const foundPanel = this.state.foundName ?
+                    <Row>
+                      <div>{this.state.foundName}</div>
+                      <img src={this.state.foundUrl} width='100' height='100' />
+                    </Row> :
+                    null;
+
+
+    // const foundPanelClass = classNames({
+    //   'visible' : this.state.foundName
+    // })
+
     return (
       <React.Fragment>
         <Row>
@@ -221,6 +323,31 @@ class App extends React.Component<Props, State> {
               onClick={::this.train}>
               Train
             </Button>
+            &nbsp;
+            <Button color="warning"
+              onClick={::this.toggleFindModal}>
+              Find
+            </Button>
+
+            <Modal isOpen={this.state.findModal}>
+              <ModalHeader>
+                Find Similar Face
+              </ModalHeader>
+              <ModalBody>
+                <InputGroup>
+                  <Input placeholder='url'
+                    onChange={::this.updateFindUrl}/>
+                </InputGroup>
+                <br />
+                {foundPanel}
+              </ModalBody>
+              <ModalFooter>
+                <Button color="primary" onClick={::this.findSimilar}>Find</Button>{' '}
+                &nbsp;
+                <Button color="secondary"
+                        onClick={::this.toggleFindModal}>Cancel</Button>
+              </ModalFooter>
+            </Modal>
 
             <Modal isOpen={this.state.modal}>
               <ModalHeader>
@@ -289,7 +416,7 @@ class App extends React.Component<Props, State> {
                                       marginLeft: 'auto',
                                       marginRight: 'auto'
                               }}
-                              src={row.original.url} width='100'/>
+                              src={row.original.url} width='200'/>
                 }
               }, {
                 Header: 'FaceID',
