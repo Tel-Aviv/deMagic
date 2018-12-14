@@ -5,7 +5,6 @@ import 'react-table/react-table.css'
 import { Button, Card, CardBody, Row, Col,
          InputGroup, Input, InputGroupAddon, InputGroupText,
          Modal, ModalHeader, ModalBody, ModalFooter} from 'reactstrap';
-import classNames from 'classnames';
 
 type State = {
     error: String,
@@ -219,11 +218,6 @@ class App extends React.Component<Props, State> {
 
   async findSimilar() {
 
-    this.setState({
-      foundName: '',
-      foundUrl: ''
-    })
-
     let body = {
       url: this.state.findUrl
     };
@@ -278,7 +272,9 @@ class App extends React.Component<Props, State> {
 
   toggleFindModal() {
     this.setState({
-      findModal: !this.state.findModal
+      findModal: !this.state.findModal,
+      foundName: '',
+      foundUrl: ''
     })
   }
 
@@ -304,11 +300,6 @@ class App extends React.Component<Props, State> {
                       <img src={this.state.foundUrl} width='100' height='100' />
                     </Row> :
                     null;
-
-
-    // const foundPanelClass = classNames({
-    //   'visible' : this.state.foundName
-    // })
 
     return (
       <React.Fragment>
