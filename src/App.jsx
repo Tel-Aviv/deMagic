@@ -24,7 +24,7 @@ type State = {
 }
 
 const baseUrl = 'https://northeurope.api.cognitive.microsoft.com/face/v1.0/'
-const largeFaceListId = 10;
+const largeFaceListId = 11;
 
 export default
 class App extends React.Component<Props, State> {
@@ -63,11 +63,19 @@ class App extends React.Component<Props, State> {
       const listItems = [];
       json.map( item => {
         const userData = JSON.parse(item.userData);
+        // preload images
+        const img = new Image();
+        img.src = userData.url;
+
         listItems.push({
           id: item.persistedFaceId,
-          url: userData.url,
+          url: `https://demagicstorage.blob.core.windows.net/faces/${parseInt(userData.tid)}.jpg?sv=2018-03-28&ss=b&srt=o&sp=r&se=2019-01-19T19:39:02Z&st=2018-12-11T11:39:02Z&spr=https,http&sig=g1LRnmQXwZ36xj6fvy8IEvn615kewWDKCu9yq5lKRQM%3D`,
+          name: `${userData.firstName} ${userData.lastName}`,
+          title: userData.title,
           phoneNumber: userData.phoneNumber,
-          name: userData.name
+          email: userData.email,
+          userName: userData.userName,
+          tid: userData.tid
         })
       });
 
@@ -369,6 +377,14 @@ class App extends React.Component<Props, State> {
               <ModalBody>
                 <InputGroup>
                   <InputGroupAddon addonType="prepend">
+                    <InputGroupText>URL</InputGroupText>
+                  </InputGroupAddon>
+                  <Input defaultValue={this.state.itemURL}
+                          onChange={::this.updateURL}/>
+                </InputGroup>
+                <br />
+                <InputGroup>
+                  <InputGroupAddon addonType="prepend">
                     <InputGroupText>Name</InputGroupText>
                   </InputGroupAddon>
                   <Input defaultValue={this.state.itemName}
@@ -405,7 +421,9 @@ class App extends React.Component<Props, State> {
                   return <img style={{
                                       display: 'block',
                                       marginLeft: 'auto',
-                                      marginRight: 'auto'
+                                      marginRight: 'auto',
+                                      width: '100',
+                                      height: '100'
                               }}
                               src={row.original.url} width='200'/>
                 }
